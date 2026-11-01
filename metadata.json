@@ -1,0 +1,8 @@
+{
+  "name": "Feed",
+  "description": "A modern hybrid social app combining a timeline feed with full-screen vertical reels, interactive reactions, comments, and post creation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

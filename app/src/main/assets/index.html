@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Feed - Timeline & Reels</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Google Fonts Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              blue: '#1877F2',
+              pink: '#FE2C55',
+              cyan: '#25F4EE',
+              dark: '#0D0E15',
+              card: '#161823',
+              cardLight: '#FFFFFF',
+              border: '#272935',
+            }
+          },
+          animation: {
+            'spin-slow': 'spin 5s linear infinite',
+            'float-heart': 'floatHeart 0.9s cubic-bezier(0.21, 1.02, 0.73, 1) forwards',
+            'bounce-short': 'bounceShort 0.4s ease-in-out',
+            'pulse-glow': 'pulseGlow 2s infinite',
+          },
+          keyframes: {
+            floatHeart: {
+              '0%': { transform: 'scale(0.3) translateY(0)', opacity: '0' },
+              '40%': { transform: 'scale(1.2) translateY(-20px)', opacity: '1' },
+              '70%': { transform: 'scale(1) translateY(-50px)', opacity: '0.9' },
+              '100%': { transform: 'scale(0.8) translateY(-90px)', opacity: '0' },
+            },
+            bounceShort: {
+              '0%, 100%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(1.3)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.4' },
+              '50%': { opacity: '0.8' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    /* Hide scrollbar for IE, Edge and Firefox */
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .reel-snap-container {
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+    }
+    .reel-snap-item {
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+    }
+    .story-ring {
+      background: linear-gradient(45deg, #FE2C55, #FF007A, #1877F2, #25F4EE);
+    }
+    .tokbook-gradient-text {
+      background: linear-gradient(90deg, #1877F2 0%, #FE2C55 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .reactions-bar {
+      transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans antialiased select-none h-screen w-screen overflow-hidden flex flex-col justify-between">
+
+  <!-- TOP APP BAR -->
+  <header class="h-14 bg-gray-900/90 backdrop-blur-md border-b border-gray-800 flex items-center justify-between px-4 z-40 shrink-0">
+    <div class="flex items-center space-x-2">
+      <img src="./app_logo.png" alt="Logo" class="w-8 h-8 rounded-xl object-cover shadow-md">
+      <span class="font-display font-extrabold text-xl tracking-tight tokbook-gradient-text">Feed</span>
+    </div>
+
+    <!-- Center Tab Pills for Fast Switch -->
+    <div class="flex bg-gray-800/80 p-0.5 rounded-full border border-gray-700/60 text-xs font-semibold">
+      <button id="tabFeedBtn" onclick="switchMainTab('feed')" class="px-3.5 py-1 rounded-full transition-all bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-sm">
+        <i class="fa-solid fa-newspaper mr-1"></i> Timeline
+      </button>
+      <button id="tabReelsBtn" onclick="switchMainTab('reels')" class="px-3.5 py-1 rounded-full transition-all text-gray-400 hover:text-white">
+        <i class="fa-brands fa-tiktok mr-1"></i> Reels
+      </button>
+    </div>
+
+    <!-- Actions (Search & Notification) -->
+    <div class="flex items-center space-x-2.5">
+      <button onclick="openCreatePostModal()" class="w-8 h-8 rounded-full bg-brand-pink/20 hover:bg-brand-pink/30 text-brand-pink flex items-center justify-center transition active:scale-95" title="New Post">
+        <i class="fa-solid fa-plus text-xs"></i>
+      </button>
+      <button onclick="toggleNotifications()" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center relative transition">
+        <i class="fa-solid fa-bell text-xs"></i>
+        <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SCROLLABLE CONTENT AREA -->
+  <main class="flex-1 relative overflow-hidden">
+
+    <!-- ================== TIMELINE VIEW ================== -->
+    <div id="viewTimeline" class="h-full overflow-y-auto no-scrollbar pb-20">
+      
+      <!-- STORIES TRAY -->
+      <section class="py-3 px-3 bg-gray-900/40 border-b border-gray-800/80">
+        <div class="flex items-center space-x-3 overflow-x-auto no-scrollbar py-1">
+          <!-- Add Story Button -->
+          <div onclick="addMyStory()" class="flex flex-col items-center shrink-0 cursor-pointer group">
+            <div class="relative w-16 h-16 rounded-2xl bg-gray-800 border-2 border-dashed border-gray-600 flex items-center justify-center overflow-hidden group-hover:border-blue-400 transition">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Me" class="w-full h-full object-cover opacity-60">
+              <div class="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <div class="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs shadow-md">
+                  <i class="fa-solid fa-plus"></i>
+                </div>
+              </div>
+            </div>
+            <span class="text-[11px] font-medium text-gray-400 mt-1.5 truncate w-16 text-center">Your Story</span>
+          </div>
+
+          <!-- Dynamic Stories -->
+          <div id="storiesContainer" class="flex items-center space-x-3">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- WHAT'S ON YOUR MIND? (POST COMPOSER BOX) -->
+      <section class="m-3 p-3.5 bg-gray-900 rounded-2xl border border-gray-800 shadow-sm">
+        <div class="flex items-center space-x-3">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Me" class="w-10 h-10 rounded-full object-cover ring-2 ring-gray-700">
+          <div onclick="openCreatePostModal()" class="flex-1 bg-gray-800 hover:bg-gray-750 text-gray-400 text-sm px-4 py-2.5 rounded-full cursor-pointer transition flex items-center justify-between">
+            <span>What's on your mind, Alex?</span>
+            <i class="fa-regular fa-image text-emerald-400"></i>
+          </div>
+        </div>
+        <div class="flex items-center justify-around mt-3 pt-2.5 border-t border-gray-800/80 text-xs text-gray-400">
+          <button onclick="openCreateReelModal()" class="flex items-center space-x-2 py-1 px-3 hover:bg-gray-800 rounded-lg transition text-brand-pink">
+            <i class="fa-solid fa-video"></i>
+            <span class="font-medium text-gray-300">Create Reel</span>
+          </button>
+          <button onclick="openCreatePostModal(true)" class="flex items-center space-x-2 py-1 px-3 hover:bg-gray-800 rounded-lg transition text-emerald-400">
+            <i class="fa-regular fa-images"></i>
+            <span class="font-medium text-gray-300">Photo/Video</span>
+          </button>
+          <button onclick="quickFeelingPrompt()" class="flex items-center space-x-2 py-1 px-3 hover:bg-gray-800 rounded-lg transition text-amber-400">
+            <i class="fa-regular fa-face-smile"></i>
+            <span class="font-medium text-gray-300">Feeling</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- POSTS FILTER TABS -->
+      <div class="px-4 py-1 flex items-center space-x-2 overflow-x-auto no-scrollbar text-xs font-semibold">
+        <button onclick="filterPosts('all')" id="filter-all" class="px-3 py-1.5 rounded-full bg-blue-600 text-white">All Posts</button>
+        <button onclick="filterPosts('trending')" id="filter-trending" class="px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:text-white">🔥 Trending</button>
+        <button onclick="filterPosts('photos')" id="filter-photos" class="px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:text-white">📸 Photos</button>
+        <button onclick="filterPosts('mine')" id="filter-mine" class="px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:text-white">👤 My Posts</button>
+      </div>
+
+      <!-- POSTS LIST -->
+      <section id="postsFeedContainer" class="p-3 space-y-3.5">
+        <!-- Rendered by JS -->
+      </section>
+    </div>
+
+    <!-- ================== VERTICAL REELS VIEW (TIKTOK STYLE) ================== -->
+    <div id="viewReels" class="hidden h-full w-full bg-black reel-snap-container overflow-y-scroll no-scrollbar">
+      <!-- Injected by JS -->
+      <div id="reelsContainer" class="w-full h-full"></div>
+    </div>
+
+    <!-- ================== PROFILE VIEW ================== -->
+    <div id="viewProfile" class="hidden h-full overflow-y-auto no-scrollbar pb-24 p-4">
+      <div class="text-center py-4">
+        <div class="relative inline-block">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Avatar" class="w-24 h-24 rounded-full object-cover ring-4 ring-brand-pink/50 mx-auto shadow-xl">
+          <span class="absolute bottom-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-[10px] text-white">
+            <i class="fa-solid fa-check"></i>
+          </span>
+        </div>
+        <h2 class="font-display font-extrabold text-xl text-white mt-2">Alex Mercer</h2>
+        <p class="text-xs text-gray-400">@alexmercer · TokBook Creator</p>
+        <p class="text-xs text-gray-300 mt-2 max-w-xs mx-auto">Filmmaker & digital nomad exploring life between stories & reels 🎬✨</p>
+
+        <!-- Stats -->
+        <div class="flex items-center justify-center space-x-8 mt-4 pt-4 border-t border-gray-800/80">
+          <div class="text-center">
+            <span id="profilePostCount" class="block font-bold text-base text-white">0</span>
+            <span class="text-[11px] text-gray-400">Posts</span>
+          </div>
+          <div class="text-center">
+            <span class="block font-bold text-base text-white">14.8K</span>
+            <span class="text-[11px] text-gray-400">Followers</span>
+          </div>
+          <div class="text-center">
+            <span id="profileLikesCount" class="block font-bold text-base text-white">48.2K</span>
+            <span class="text-[11px] text-gray-400">Likes</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center space-x-3 mt-4">
+          <button onclick="openCreatePostModal()" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30">
+            <i class="fa-solid fa-plus mr-1"></i> New Post
+          </button>
+          <button onclick="openCreateReelModal()" class="px-5 py-2 rounded-xl bg-brand-pink hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-brand-pink/30">
+            <i class="fa-brands fa-tiktok mr-1"></i> New Reel
+          </button>
+          <button onclick="resetDataPrompt()" class="px-3 py-2 rounded-xl bg-gray-800 text-gray-300 text-xs hover:bg-gray-700" title="Reset Demo Data">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- User's Created Posts / Reels Grid -->
+      <div class="mt-4 border-t border-gray-800 pt-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Your Feed History</h3>
+        <div id="userPostsGrid" class="grid grid-cols-2 gap-2.5">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="h-16 bg-gray-900/95 backdrop-blur-md border-t border-gray-800 flex items-center justify-around px-2 z-40 shrink-0">
+    <!-- Timeline Tab -->
+    <button onclick="switchMainTab('feed')" id="navFeed" class="flex flex-col items-center justify-center w-14 py-1 text-blue-500 transition">
+      <i class="fa-solid fa-house text-lg"></i>
+      <span class="text-[10px] font-semibold mt-1">Feed</span>
+    </button>
+
+    <!-- Reels Tab -->
+    <button onclick="switchMainTab('reels')" id="navReels" class="flex flex-col items-center justify-center w-14 py-1 text-gray-400 hover:text-white transition">
+      <i class="fa-brands fa-tiktok text-lg"></i>
+      <span class="text-[10px] font-semibold mt-1">Reels</span>
+    </button>
+
+    <!-- Floating Create Button -->
+    <button onclick="openCreateChoiceModal()" class="relative -top-2 flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-r from-brand-blue via-purple-600 to-brand-pink text-white shadow-lg shadow-purple-600/30 transform active:scale-95 transition">
+      <i class="fa-solid fa-plus text-lg"></i>
+    </button>
+
+    <!-- Activity Tab -->
+    <button onclick="filterPosts('trending'); switchMainTab('feed');" id="navTrending" class="flex flex-col items-center justify-center w-14 py-1 text-gray-400 hover:text-white transition">
+      <i class="fa-solid fa-fire-flame-curved text-lg"></i>
+      <span class="text-[10px] font-semibold mt-1">Explore</span>
+    </button>
+
+    <!-- Profile Tab -->
+    <button onclick="switchMainTab('profile')" id="navProfile" class="flex flex-col items-center justify-center w-14 py-1 text-gray-400 hover:text-white transition">
+      <i class="fa-solid fa-user text-lg"></i>
+      <span class="text-[10px] font-semibold mt-1">Profile</span>
+    </button>
+  </nav>
+
+  <!-- ================== MODALS & BOTTOM SHEETS ================== -->
+
+  <!-- COMMENTS BOTTOM SHEET -->
+  <div id="commentSheet" class="fixed inset-0 bg-black/60 z-50 hidden flex flex-col justify-end backdrop-blur-sm transition-opacity">
+    <div class="bg-gray-900 border-t border-gray-800 rounded-t-3xl max-h-[75vh] flex flex-col w-full max-w-lg mx-auto shadow-2xl animate-in slide-in-from-bottom duration-200">
+      <div class="p-4 border-b border-gray-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-regular fa-comment-dots text-brand-pink"></i>
+          <span id="commentSheetTitle" class="font-bold text-sm text-white">Comments (0)</span>
+        </div>
+        <button onclick="closeCommentsSheet()" class="w-8 h-8 rounded-full bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="commentsList" class="flex-1 overflow-y-auto p-4 space-y-3.5 no-scrollbar">
+        <!-- Rendered Comments -->
+      </div>
+
+      <!-- Add Comment Form -->
+      <form onsubmit="submitComment(event)" class="p-3 bg-gray-950 border-t border-gray-800 flex items-center space-x-2">
+        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Me" class="w-8 h-8 rounded-full object-cover">
+        <input type="text" id="commentInput" placeholder="Add a comment... ❤️" class="flex-1 bg-gray-800 border border-gray-700 text-white text-xs px-3.5 py-2.5 rounded-full focus:outline-none focus:border-brand-pink" autocomplete="off" required>
+        <button type="submit" class="px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-brand-pink text-white text-xs font-semibold shadow hover:opacity-95">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- CREATE CHOICE MODAL -->
+  <div id="createChoiceModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-sm p-5 space-y-3 shadow-2xl">
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="font-display font-extrabold text-base text-white">Create New Content</h3>
+        <button onclick="closeCreateChoiceModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <button onclick="closeCreateChoiceModal(); openCreatePostModal()" class="w-full p-4 rounded-2xl bg-gray-800/80 hover:bg-gray-800 border border-gray-700/80 flex items-center space-x-3.5 text-left transition group">
+        <div class="w-11 h-11 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center text-lg group-hover:scale-110 transition">
+          <i class="fa-solid fa-pen-to-square"></i>
+        </div>
+        <div>
+          <span class="font-bold text-sm text-white block">Timeline Post</span>
+          <span class="text-xs text-gray-400">Share text thoughts, photos & life updates</span>
+        </div>
+      </button>
+
+      <button onclick="closeCreateChoiceModal(); openCreateReelModal()" class="w-full p-4 rounded-2xl bg-gray-800/80 hover:bg-gray-800 border border-gray-700/80 flex items-center space-x-3.5 text-left transition group">
+        <div class="w-11 h-11 rounded-xl bg-brand-pink/20 text-brand-pink flex items-center justify-center text-lg group-hover:scale-110 transition">
+          <i class="fa-brands fa-tiktok"></i>
+        </div>
+        <div>
+          <span class="font-bold text-sm text-white block">Vertical Reel</span>
+          <span class="text-xs text-gray-400">Upload 9:16 video clip, music & tags</span>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- CREATE POST MODAL -->
+  <div id="createPostModal" class="fixed inset-0 bg-black/75 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+        <div class="flex items-center space-x-2.5">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Me" class="w-9 h-9 rounded-full object-cover">
+          <div>
+            <h4 class="font-bold text-sm text-white">Alex Mercer</h4>
+            <span class="text-[10px] text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full"><i class="fa-solid fa-earth-americas mr-1"></i> Public</span>
+          </div>
+        </div>
+        <button onclick="closeCreatePostModal()" class="w-7 h-7 rounded-full bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <textarea id="postContentInput" rows="3" placeholder="What's on your mind? Share thoughts, stories or questions..." class="w-full bg-transparent text-white text-sm focus:outline-none resize-none placeholder-gray-500"></textarea>
+
+      <!-- Image Preview if chosen -->
+      <div id="postImagePreviewContainer" class="hidden relative rounded-xl overflow-hidden max-h-48 border border-gray-700">
+        <img id="postImagePreview" src="" alt="Preview" class="w-full h-full object-cover">
+        <button onclick="clearPostImage()" class="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Quick sample photos picker -->
+      <div>
+        <label class="block text-[11px] font-semibold text-gray-400 mb-1.5">Attach Photo from Gallery:</label>
+        <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
+          <div onclick="selectPresetImage('https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80')" class="w-12 h-12 rounded-lg overflow-hidden shrink-0 cursor-pointer border-2 border-transparent hover:border-blue-500">
+            <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=120&q=80" class="w-full h-full object-cover">
+          </div>
+          <div onclick="selectPresetImage('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80')" class="w-12 h-12 rounded-lg overflow-hidden shrink-0 cursor-pointer border-2 border-transparent hover:border-blue-500">
+            <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=120&q=80" class="w-full h-full object-cover">
+          </div>
+          <div onclick="selectPresetImage('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80')" class="w-12 h-12 rounded-lg overflow-hidden shrink-0 cursor-pointer border-2 border-transparent hover:border-blue-500">
+            <img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=120&q=80" class="w-full h-full object-cover">
+          </div>
+          <div onclick="selectPresetImage('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80')" class="w-12 h-12 rounded-lg overflow-hidden shrink-0 cursor-pointer border-2 border-transparent hover:border-blue-500">
+            <img src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=120&q=80" class="w-full h-full object-cover">
+          </div>
+          <label class="w-12 h-12 rounded-lg bg-gray-800 border border-dashed border-gray-600 flex flex-col items-center justify-center shrink-0 cursor-pointer hover:border-blue-400">
+            <i class="fa-solid fa-cloud-arrow-up text-xs text-gray-400"></i>
+            <span class="text-[9px] text-gray-400">URL</span>
+            <input type="file" accept="image/*" onchange="handleLocalImageUpload(event)" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <!-- Tag / Category -->
+      <div class="flex items-center space-x-2">
+        <select id="postTagSelect" class="bg-gray-800 border border-gray-700 text-xs text-gray-300 rounded-xl px-2.5 py-1.5 focus:outline-none">
+          <option value="General">💬 General</option>
+          <option value="Lifestyle">🌿 Lifestyle</option>
+          <option value="Travel">✈️ Travel</option>
+          <option value="Tech">💻 Tech</option>
+          <option value="Foodie">🍕 Foodie</option>
+        </select>
+        <input type="text" id="postFeelingInput" placeholder="Feeling (e.g. Excited 🎉)" class="flex-1 bg-gray-800 border border-gray-700 text-xs text-gray-300 rounded-xl px-2.5 py-1.5 focus:outline-none">
+      </div>
+
+      <button onclick="publishNewPost()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-bold text-xs shadow-lg shadow-blue-500/30 transition">
+        Post to Feed
+      </button>
+    </div>
+  </div>
+
+  <!-- CREATE REEL MODAL -->
+  <div id="createReelModal" class="fixed inset-0 bg-black/75 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+        <div class="flex items-center space-x-2">
+          <i class="fa-brands fa-tiktok text-brand-pink text-lg"></i>
+          <h4 class="font-bold text-sm text-white">Create Vertical Reel</h4>
+        </div>
+        <button onclick="closeCreateReelModal()" class="w-7 h-7 rounded-full bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-gray-400 mb-1">Caption & Hashtags:</label>
+        <input type="text" id="reelCaptionInput" placeholder="e.g. Sunset vibes in Bali! #travel #tokbook #explore" class="w-full bg-gray-800 border border-gray-700 text-white text-xs px-3 py-2 rounded-xl focus:outline-none">
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-gray-400 mb-1">Original Sound Title:</label>
+        <input type="text" id="reelSoundInput" placeholder="e.g. Alex Mercer - Summer Chill Beat 🎵" class="w-full bg-gray-800 border border-gray-700 text-white text-xs px-3 py-2 rounded-xl focus:outline-none">
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-gray-400 mb-1">Select Video Mood Theme:</label>
+        <div class="grid grid-cols-4 gap-2">
+          <div onclick="selectReelTheme('neon')" id="theme-neon" class="reel-theme-pill p-2 rounded-xl bg-gradient-to-tr from-pink-600 to-indigo-900 text-center cursor-pointer border-2 border-brand-pink">
+            <span class="text-[10px] font-bold block text-white">Neon</span>
+          </div>
+          <div onclick="selectReelTheme('sunset')" id="theme-sunset" class="reel-theme-pill p-2 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-600 to-purple-900 text-center cursor-pointer border-2 border-transparent">
+            <span class="text-[10px] font-bold block text-white">Sunset</span>
+          </div>
+          <div onclick="selectReelTheme('cyber')" id="theme-cyber" class="reel-theme-pill p-2 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-900 text-center cursor-pointer border-2 border-transparent">
+            <span class="text-[10px] font-bold block text-white">Cyber</span>
+          </div>
+          <div onclick="selectReelTheme('emerald')" id="theme-emerald" class="reel-theme-pill p-2 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-950 text-center cursor-pointer border-2 border-transparent">
+            <span class="text-[10px] font-bold block text-white">Aurora</span>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="publishNewReel()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-pink to-purple-600 hover:opacity-90 text-white font-bold text-xs shadow-lg shadow-brand-pink/30 transition">
+        Publish Reel
+      </button>
+    </div>
+  </div>
+
+  <!-- STORY VIEWER MODAL -->
+  <div id="storyViewerModal" class="fixed inset-0 bg-black z-50 hidden flex flex-col justify-between">
+    <!-- Progress Bar -->
+    <div class="p-4 pt-6 flex items-center space-x-1 z-10">
+      <div class="h-1 bg-white/30 rounded-full flex-1 overflow-hidden">
+        <div id="storyProgressBar" class="h-full bg-white w-0 transition-all"></div>
+      </div>
+    </div>
+    <!-- Story Header -->
+    <div class="px-4 flex items-center justify-between z-10">
+      <div class="flex items-center space-x-2.5">
+        <img id="storyUserAvatar" src="" class="w-9 h-9 rounded-full object-cover ring-2 ring-white">
+        <div>
+          <h4 id="storyUserName" class="text-xs font-bold text-white">User</h4>
+          <span class="text-[10px] text-gray-300">Just now</span>
+        </div>
+      </div>
+      <button onclick="closeStoryViewer()" class="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <!-- Story Media View -->
+    <div class="flex-1 flex items-center justify-center p-4 relative">
+      <img id="storyImage" src="" class="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl">
+      <div class="absolute inset-0 flex justify-between">
+        <div onclick="prevStory()" class="w-1/3 h-full cursor-pointer"></div>
+        <div onclick="nextStory()" class="w-2/3 h-full cursor-pointer"></div>
+      </div>
+    </div>
+    <!-- Story Reply Box -->
+    <div class="p-4 flex items-center space-x-2 z-10">
+      <input type="text" placeholder="Send message..." class="flex-1 bg-white/20 backdrop-blur-md rounded-full px-4 py-2 text-xs text-white placeholder-white/70 focus:outline-none">
+      <button onclick="reactStory('❤️')" class="w-9 h-9 rounded-full bg-white/20 text-white flex items-center justify-center text-sm">❤️</button>
+      <button onclick="reactStory('🔥')" class="w-9 h-9 rounded-full bg-white/20 text-white flex items-center justify-center text-sm">🔥</button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-700 text-white text-xs px-4 py-2 rounded-full shadow-2xl flex items-center space-x-2 pointer-events-none opacity-0 transition-opacity z-50">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastMsg">Action completed!</span>
+  </div>
+
+  <!-- ================== JAVASCRIPT LOGIC WITH LOCALSTORAGE ================== -->
+  <script>
+    // Initial Seed Data
+    const DEFAULT_POSTS = [
+      {
+        id: 'post_1',
+        author: 'Elena Rostova',
+        handle: 'elenarostova',
+        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+        content: 'Just wrapped shooting our brand new cinematic travel series! 🎬 Here is a sneak preview of the sunrise over the Amalfi coast. What do you all think?',
+        image: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=800&q=80',
+        timestamp: '15m ago',
+        category: 'Travel',
+        feeling: 'Grateful ✨',
+        likes: 142,
+        isLiked: false,
+        reaction: null,
+        commentsCount: 18,
+        shares: 6
+      },
+      {
+        id: 'post_2',
+        author: 'Marcus Vance',
+        handle: 'marcus_tech',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+        content: 'Quick tech poll: Are vertical reels completely replacing traditional horizontal feeds for you, or do you still love long-form timeline discussions? Drop your thoughts below! 👇🔥',
+        image: null,
+        timestamp: '1h ago',
+        category: 'Tech',
+        feeling: 'Curious 🤔',
+        likes: 89,
+        isLiked: true,
+        reaction: '👍',
+        commentsCount: 34,
+        shares: 12
+      },
+      {
+        id: 'post_3',
+        author: 'Chef Matteo',
+        handle: 'matteocooks',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
+        content: 'Homemade Neapolitan sourdough pizza fresh out of the 900°F wood oven! Crispy, airy cornicione and fresh basil. Recipe dropping tonight! 🍕🌿',
+        image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80',
+        timestamp: '3h ago',
+        category: 'Foodie',
+        feeling: 'Hungry 😋',
+        likes: 310,
+        isLiked: false,
+        reaction: null,
+        commentsCount: 42,
+        shares: 27
+      }
+    ];
+
+    const DEFAULT_REELS = [
+      {
+        id: 'reel_1',
+        creator: 'Kira Cyberpunk',
+        handle: 'kiraneon',
+        avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80',
+        caption: 'Night ride through Tokyo shinjuku with glowing synthwave beats 🏍️💨 #tokyo #neon #cyberpunk #vibe',
+        sound: 'Synthwave Dreams · Nightcall VIP',
+        likes: 12430,
+        isLiked: false,
+        commentsCount: 428,
+        theme: 'neon',
+        colorFrom: '#FE2C55',
+        colorTo: '#25F4EE'
+      },
+      {
+        id: 'reel_2',
+        creator: 'David Wanderlust',
+        handle: 'david_nature',
+        avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80',
+        caption: 'Golden hour drone glide over the alpine peaks of Switzerland 🏔️☀️ Tag someone you would bring here!',
+        sound: 'Peaceful Moments · Original Audio',
+        likes: 24890,
+        isLiked: true,
+        commentsCount: 912,
+        theme: 'sunset',
+        colorFrom: '#F59E0B',
+        colorTo: '#9333EA'
+      },
+      {
+        id: 'reel_3',
+        creator: 'Studio Choreography',
+        handle: 'dancewave',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+        caption: 'Hit this routine in 20 minutes! Can you guess the tempo? Drop your rate 1-10 🔥🕺 #dance #challenge #tokbook',
+        sound: 'Electro Bass Drop · Trend Sound 2026',
+        likes: 45100,
+        isLiked: false,
+        commentsCount: 1530,
+        theme: 'cyber',
+        colorFrom: '#06B6D4',
+        colorTo: '#3B82F6'
+      }
+    ];
+
+    const DEFAULT_STORIES = [
+      { id: 's1', user: 'Elena', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80', image: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=800&q=80' },
+      { id: 's2', user: 'Matteo', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80', image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80' },
+      { id: 's3', user: 'Kira', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80' },
+      { id: 's4', user: 'Marcus', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80', image: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80' },
+    ];
+
+    // App State backed by LocalStorage
+    let posts = [];
+    let reels = [];
+    let commentsDb = {};
+    let activeFilter = 'all';
+    let currentCommentTargetId = null;
+    let selectedImageForPost = null;
+    let selectedReelTheme = 'neon';
+    let currentStoryIndex = 0;
+    let storyInterval = null;
+
+    // Initialize from localStorage
+    function initStorage() {
+      const savedPosts = localStorage.getItem('tokbook_posts');
+      if (savedPosts) {
+        posts = JSON.parse(savedPosts);
+      } else {
+        posts = DEFAULT_POSTS;
+        savePosts();
+      }
+
+      const savedReels = localStorage.getItem('tokbook_reels');
+      if (savedReels) {
+        reels = JSON.parse(savedReels);
+      } else {
+        reels = DEFAULT_REELS;
+        saveReels();
+      }
+
+      const savedComments = localStorage.getItem('tokbook_comments');
+      if (savedComments) {
+        commentsDb = JSON.parse(savedComments);
+      } else {
+        commentsDb = {
+          'post_1': [
+            { id: 'c1', author: 'Sophia Chen', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80', text: 'This looks straight out of a movie! Absolutely stunning view.', time: '10m', likes: 4 },
+            { id: 'c2', author: 'Liam Walker', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80', text: 'Which lens was used for this shot? 📷', time: '5m', likes: 2 }
+          ],
+          'reel_1': [
+            { id: 'rc1', author: 'CyberNinja', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&q=80', text: 'Tokyo night drives hit different 🔥', time: '2h', likes: 18 }
+          ]
+        };
+        saveComments();
+      }
+
+      renderStories();
+      renderPosts();
+      renderReels();
+      updateProfileStats();
+    }
+
+    function savePosts() {
+      localStorage.setItem('tokbook_posts', JSON.stringify(posts));
+      updateProfileStats();
+    }
+
+    function saveReels() {
+      localStorage.setItem('tokbook_reels', JSON.stringify(reels));
+      updateProfileStats();
+    }
+
+    function saveComments() {
+      localStorage.setItem('tokbook_comments', JSON.stringify(commentsDb));
+    }
+
+    // Switch Top/Bottom Tab Navigation
+    function switchMainTab(tab) {
+      const viewTimeline = document.getElementById('viewTimeline');
+      const viewReels = document.getElementById('viewReels');
+      const viewProfile = document.getElementById('viewProfile');
+
+      const tabFeedBtn = document.getElementById('tabFeedBtn');
+      const tabReelsBtn = document.getElementById('tabReelsBtn');
+
+      const navFeed = document.getElementById('navFeed');
+      const navReels = document.getElementById('navReels');
+      const navTrending = document.getElementById('navTrending');
+      const navProfile = document.getElementById('navProfile');
+
+      // Reset tabs
+      [viewTimeline, viewReels, viewProfile].forEach(el => el.classList.add('hidden'));
+      [navFeed, navReels, navTrending, navProfile].forEach(el => {
+        el.className = 'flex flex-col items-center justify-center w-14 py-1 text-gray-400 hover:text-white transition';
+      });
+
+      if (tab === 'feed') {
+        viewTimeline.classList.remove('hidden');
+        tabFeedBtn.className = 'px-3.5 py-1 rounded-full transition-all bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-sm';
+        tabReelsBtn.className = 'px-3.5 py-1 rounded-full transition-all text-gray-400 hover:text-white';
+        navFeed.className = 'flex flex-col items-center justify-center w-14 py-1 text-blue-500 font-bold transition';
+      } else if (tab === 'reels') {
+        viewReels.classList.remove('hidden');
+        tabReelsBtn.className = 'px-3.5 py-1 rounded-full transition-all bg-brand-pink text-white shadow-sm';
+        tabFeedBtn.className = 'px-3.5 py-1 rounded-full transition-all text-gray-400 hover:text-white';
+        navReels.className = 'flex flex-col items-center justify-center w-14 py-1 text-brand-pink font-bold transition';
+      } else if (tab === 'profile') {
+        viewProfile.classList.remove('hidden');
+        navProfile.className = 'flex flex-col items-center justify-center w-14 py-1 text-purple-400 font-bold transition';
+        renderUserProfileGrid();
+      }
+    }
+
+    // Render Stories
+    function renderStories() {
+      const container = document.getElementById('storiesContainer');
+      container.innerHTML = DEFAULT_STORIES.map((s, idx) => `
+        <div onclick="openStoryViewer(${idx})" class="flex flex-col items-center shrink-0 cursor-pointer group">
+          <div class="p-0.5 rounded-2xl story-ring transform group-hover:scale-105 transition">
+            <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gray-900 border-2 border-gray-900">
+              <img src="${s.avatar}" alt="${s.user}" class="w-full h-full object-cover">
+            </div>
+          </div>
+          <span class="text-[11px] font-medium text-gray-300 mt-1 truncate w-16 text-center">${s.user}</span>
+        </div>
+      `).join('');
+    }
+
+    // Render Timeline Posts
+    function renderPosts() {
+      const container = document.getElementById('postsFeedContainer');
+      let filtered = posts;
+
+      if (activeFilter === 'photos') {
+        filtered = posts.filter(p => !!p.image);
+      } else if (activeFilter === 'trending') {
+        filtered = [...posts].sort((a, b) => (b.likes + b.commentsCount) - (a.likes + a.commentsCount));
+      } else if (activeFilter === 'mine') {
+        filtered = posts.filter(p => p.author === 'Alex Mercer');
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-gray-500">
+            <i class="fa-regular fa-folder-open text-4xl mb-2"></i>
+            <p class="text-sm font-semibold">No posts found in this filter.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(post => {
+        const commentsList = commentsDb[post.id] || [];
+        const isUserPost = post.author === 'Alex Mercer';
+
+        return `
+          <article class="bg-gray-900 rounded-2xl border border-gray-800/80 shadow-md overflow-hidden relative" data-id="${post.id}">
+            <!-- Header -->
+            <div class="p-3.5 flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <img src="${post.avatar}" alt="${post.author}" class="w-10 h-10 rounded-full object-cover ring-2 ring-gray-700">
+                <div>
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-sm text-white">${post.author}</span>
+                    <i class="fa-solid fa-circle-check text-blue-500 text-xs"></i>
+                    ${post.feeling ? `<span class="text-xs text-gray-400 font-normal">is feeling ${post.feeling}</span>` : ''}
+                  </div>
+                  <div class="flex items-center space-x-2 text-[11px] text-gray-400">
+                    <span>${post.timestamp}</span>
+                    <span>•</span>
+                    <span class="bg-gray-800 text-blue-400 px-2 py-0.2 rounded-full font-medium text-[10px]">${post.category || 'General'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-1">
+                ${isUserPost ? `
+                  <button onclick="deletePost('${post.id}')" class="w-8 h-8 rounded-full text-gray-400 hover:text-red-400 hover:bg-gray-800 flex items-center justify-center transition" title="Delete">
+                    <i class="fa-regular fa-trash-can text-xs"></i>
+                  </button>
+                ` : ''}
+                <button onclick="showToast('Post bookmarked!')" class="w-8 h-8 rounded-full text-gray-400 hover:text-amber-400 hover:bg-gray-800 flex items-center justify-center transition">
+                  <i class="fa-regular fa-bookmark text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Content text -->
+            <div class="px-3.5 pb-2 text-sm text-gray-200 leading-relaxed font-normal">
+              ${post.content}
+            </div>
+
+            <!-- Optional Image -->
+            ${post.image ? `
+              <div class="w-full max-h-96 overflow-hidden bg-black/40">
+                <img src="${post.image}" alt="Post media" class="w-full h-auto object-cover hover:scale-101 transition duration-300">
+              </div>
+            ` : ''}
+
+            <!-- Social Summary Bar -->
+            <div class="px-3.5 py-2 flex items-center justify-between text-xs text-gray-400 border-b border-gray-800/60">
+              <div class="flex items-center space-x-1.5">
+                <span class="flex -space-x-1">
+                  <span class="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-white">👍</span>
+                  <span class="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center text-[10px] text-white">❤️</span>
+                  <span class="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] text-white">🔥</span>
+                </span>
+                <span id="likes-count-${post.id}" class="font-medium text-gray-300">${post.likes}</span>
+              </div>
+              <div class="flex items-center space-x-3 text-[11px]">
+                <span onclick="openCommentsSheet('${post.id}')" class="cursor-pointer hover:underline">${commentsList.length} comments</span>
+                <span>•</span>
+                <span>${post.shares || 0} shares</span>
+              </div>
+            </div>
+
+            <!-- Interactive Action Buttons -->
+            <div class="px-2 py-1.5 flex items-center justify-around text-xs font-semibold relative">
+              <!-- Like Button with Reaction Support -->
+              <button onclick="togglePostLike('${post.id}')" class="flex-1 py-2 flex items-center justify-center space-x-2 rounded-xl transition ${post.isLiked ? 'text-blue-400 font-bold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}">
+                <i class="${post.isLiked ? 'fa-solid fa-thumbs-up animate-bounce-short' : 'fa-regular fa-thumbs-up'} text-sm"></i>
+                <span>${post.reaction ? post.reaction : 'Like'}</span>
+              </button>
+
+              <!-- Comment Button -->
+              <button onclick="openCommentsSheet('${post.id}')" class="flex-1 py-2 flex items-center justify-center space-x-2 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition">
+                <i class="fa-regular fa-message text-sm"></i>
+                <span>Comment</span>
+              </button>
+
+              <!-- Share Button -->
+              <button onclick="sharePost('${post.id}')" class="flex-1 py-2 flex items-center justify-center space-x-2 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition">
+                <i class="fa-solid fa-share text-sm"></i>
+                <span>Share</span>
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    // Toggle Post Like
+    function togglePostLike(postId) {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
+      post.isLiked = !post.isLiked;
+      post.likes += post.isLiked ? 1 : -1;
+      post.reaction = post.isLiked ? '👍' : null;
+
+      savePosts();
+      renderPosts();
+    }
+
+    // Render Vertical Reels (TikTok style)
+    function renderReels() {
+      const container = document.getElementById('reelsContainer');
+      container.innerHTML = reels.map((reel, index) => {
+        const commentsList = commentsDb[reel.id] || [];
+        const isLiked = reel.isLiked;
+
+        return `
+          <div class="reel-snap-item relative w-full h-full flex flex-col justify-between overflow-hidden bg-gray-950" id="reel-item-${reel.id}">
+            
+            <!-- Animated Canvas / Video Backdrop -->
+            <div class="absolute inset-0 z-0 overflow-hidden flex items-center justify-center" onclick="handleReelTap(event, '${reel.id}')" ondblclick="doubleTapReelHeart(event, '${reel.id}')">
+              <div class="w-full h-full bg-gradient-to-tr" style="background-image: linear-gradient(135deg, ${reel.colorFrom || '#FE2C55'} 0%, #0D0E15 65%, ${reel.colorTo || '#25F4EE'} 100%);">
+                <!-- Ambient Pulsing Orb Visualizer -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="w-64 h-64 rounded-full bg-white/10 blur-3xl animate-pulse"></div>
+                  <!-- Simulated Reel Visual Card -->
+                  <div class="w-72 h-80 rounded-3xl bg-black/40 backdrop-blur-xl border border-white/10 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
+                    <div class="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-3xl text-white mb-4 shadow-inner">
+                      <i class="fa-solid fa-play"></i>
+                    </div>
+                    <span class="text-white font-display font-extrabold text-base tracking-wide">${reel.creator}</span>
+                    <span class="text-xs text-gray-300 mt-1 line-clamp-2">${reel.caption}</span>
+                    <!-- Waveform Bars -->
+                    <div class="flex items-center space-x-1.5 mt-5">
+                      <span class="w-1.5 h-6 bg-brand-pink rounded-full animate-bounce"></span>
+                      <span class="w-1.5 h-10 bg-brand-cyan rounded-full animate-bounce [animation-delay:0.1s]"></span>
+                      <span class="w-1.5 h-8 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                      <span class="w-1.5 h-12 bg-purple-500 rounded-full animate-bounce [animation-delay:0.3s]"></span>
+                      <span class="w-1.5 h-7 bg-brand-pink rounded-full animate-bounce [animation-delay:0.15s]"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Top Vignette Gradient -->
+              <div class="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/80 to-transparent pointer-events-none"></div>
+              <!-- Bottom Vignette Gradient -->
+              <div class="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none"></div>
+            </div>
+
+            <!-- Top Reel Header Status -->
+            <div class="relative z-10 px-4 pt-4 flex items-center justify-between pointer-events-none">
+              <span class="text-xs font-bold tracking-widest uppercase text-white/80 bg-black/40 px-3 py-1 rounded-full backdrop-blur-md">
+                Reels · #${index + 1}
+              </span>
+              <span class="text-xs text-white/90 bg-brand-pink/80 px-2.5 py-0.5 rounded-full font-semibold animate-pulse">
+                LIVE SOUND
+              </span>
+            </div>
+
+            <!-- Floating Hearts Container (Double Tap Effect) -->
+            <div id="heartBurstContainer-${reel.id}" class="absolute inset-0 z-20 pointer-events-none"></div>
+
+            <!-- Bottom Left Info & Right Action Rail -->
+            <div class="relative z-10 p-4 pb-6 flex items-end justify-between">
+              
+              <!-- Creator Info & Audio Track -->
+              <div class="flex-1 pr-6 space-y-2">
+                <div class="flex items-center space-x-2.5">
+                  <img src="${reel.avatar}" alt="${reel.creator}" class="w-9 h-9 rounded-full object-cover ring-2 ring-brand-pink">
+                  <span class="font-bold text-sm text-white drop-shadow">${reel.creator}</span>
+                  <button class="px-2.5 py-0.5 rounded-full bg-brand-pink text-white text-[10px] font-bold shadow hover:opacity-90">Follow</button>
+                </div>
+
+                <p class="text-xs text-white/95 leading-snug drop-shadow line-clamp-3">
+                  ${reel.caption}
+                </p>
+
+                <!-- Sound Ticker -->
+                <div class="flex items-center space-x-2 text-xs text-gray-300">
+                  <i class="fa-solid fa-music text-[10px] text-brand-cyan"></i>
+                  <div class="overflow-hidden whitespace-nowrap text-[11px] max-w-[200px]">
+                    <span class="inline-block animate-[marquee_10s_linear_infinite]">${reel.sound}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Vertical Action Sidebar (TikTok Style) -->
+              <div class="flex flex-col items-center space-y-4 shrink-0">
+                <!-- Creator Avatar Circle with Plus -->
+                <div class="relative mb-1">
+                  <img src="${reel.avatar}" class="w-11 h-11 rounded-full object-cover ring-2 ring-white">
+                  <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-4 bg-brand-pink rounded-full text-white flex items-center justify-center text-[9px] shadow">
+                    <i class="fa-solid fa-plus"></i>
+                  </div>
+                </div>
+
+                <!-- Like Button -->
+                <button onclick="toggleReelLike('${reel.id}')" class="flex flex-col items-center transition group">
+                  <div class="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-xl ${isLiked ? 'text-brand-pink scale-110' : 'text-white'} group-active:scale-125 transition">
+                    <i class="fa-solid fa-heart"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-white mt-1 drop-shadow">${formatNumber(reel.likes)}</span>
+                </button>
+
+                <!-- Comment Button -->
+                <button onclick="openCommentsSheet('${reel.id}')" class="flex flex-col items-center transition group">
+                  <div class="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-xl text-white group-active:scale-110 transition">
+                    <i class="fa-solid fa-comment-dots"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-white mt-1 drop-shadow">${formatNumber(commentsList.length || reel.commentsCount)}</span>
+                </button>
+
+                <!-- Bookmark Button -->
+                <button onclick="showToast('Reel saved to Favorites!')" class="flex flex-col items-center transition group">
+                  <div class="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-xl text-white group-active:scale-110 transition">
+                    <i class="fa-solid fa-bookmark"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-white mt-1 drop-shadow">Save</span>
+                </button>
+
+                <!-- Share Button -->
+                <button onclick="shareReel('${reel.id}')" class="flex flex-col items-center transition group">
+                  <div class="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-xl text-white group-active:scale-110 transition">
+                    <i class="fa-solid fa-share"></i>
+                  </div>
+                  <span class="text-[10px] font-bold text-white mt-1 drop-shadow">Share</span>
+                </button>
+
+                <!-- Spinning Vinyl Music Disc -->
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-gray-900 to-gray-700 p-1 animate-spin-slow ring-2 ring-gray-600 shadow-xl">
+                  <img src="${reel.avatar}" class="w-full h-full rounded-full object-cover">
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Double Tap Heart Burst for Reels
+    function doubleTapReelHeart(event, reelId) {
+      const reel = reels.find(r => r.id === reelId);
+      if (!reel) return;
+
+      if (!reel.isLiked) {
+        reel.isLiked = true;
+        reel.likes += 1;
+        saveReels();
+        renderReels();
+      }
+
+      // Spawn floating heart at click location
+      const container = document.getElementById(`heartBurstContainer-${reelId}`);
+      if (container) {
+        const heart = document.createElement('div');
+        heart.className = 'absolute text-brand-pink text-5xl fa-solid fa-heart animate-float-heart drop-shadow-xl pointer-events-none';
+        heart.style.left = `${event.clientX - 25}px`;
+        heart.style.top = `${event.clientY - 40}px`;
+        container.appendChild(heart);
+        setTimeout(() => heart.remove(), 900);
+      }
+    }
+
+    function handleReelTap(e, reelId) {
+      // Toggle play pause indicator
+    }
+
+    function toggleReelLike(reelId) {
+      const reel = reels.find(r => r.id === reelId);
+      if (!reel) return;
+      reel.isLiked = !reel.isLiked;
+      reel.likes += reel.isLiked ? 1 : -1;
+      saveReels();
+      renderReels();
+    }
+
+    // COMMENTS BOTTOM SHEET
+    function openCommentsSheet(targetId) {
+      currentCommentTargetId = targetId;
+      const sheet = document.getElementById('commentSheet');
+      const list = document.getElementById('commentsList');
+      const title = document.getElementById('commentSheetTitle');
+
+      const comments = commentsDb[targetId] || [];
+      title.innerText = `Comments (${comments.length})`;
+
+      if (comments.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <i class="fa-regular fa-comment text-3xl mb-2"></i>
+            <p class="text-xs">Be the first to share your thoughts!</p>
+          </div>
+        `;
+      } else {
+        list.innerHTML = comments.map(c => `
+          <div class="flex items-start space-x-2.5">
+            <img src="${c.avatar}" alt="${c.author}" class="w-7 h-7 rounded-full object-cover mt-0.5">
+            <div class="flex-1 bg-gray-800/80 p-2.5 rounded-2xl">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-xs text-white">${c.author}</span>
+                <span class="text-[10px] text-gray-400">${c.time || 'now'}</span>
+              </div>
+              <p class="text-xs text-gray-300 mt-1">${c.text}</p>
+            </div>
+            <button onclick="likeComment('${targetId}', '${c.id}')" class="pt-2 text-xs text-gray-400 hover:text-red-400 flex flex-col items-center">
+              <i class="fa-regular fa-heart"></i>
+              <span class="text-[9px]">${c.likes || 0}</span>
+            </button>
+          </div>
+        `).join('');
+      }
+
+      sheet.classList.remove('hidden');
+    }
+
+    function closeCommentsSheet() {
+      document.getElementById('commentSheet').classList.add('hidden');
+      currentCommentTargetId = null;
+    }
+
+    function submitComment(e) {
+      e.preventDefault();
+      if (!currentCommentTargetId) return;
+
+      const input = document.getElementById('commentInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (!commentsDb[currentCommentTargetId]) {
+        commentsDb[currentCommentTargetId] = [];
+      }
+
+      const newComment = {
+        id: 'c_' + Date.now(),
+        author: 'Alex Mercer',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        text: text,
+        time: 'Just now',
+        likes: 0
+      };
+
+      commentsDb[currentCommentTargetId].unshift(newComment);
+      saveComments();
+
+      // Update post comment count if it's a post
+      const post = posts.find(p => p.id === currentCommentTargetId);
+      if (post) {
+        post.commentsCount = (post.commentsCount || 0) + 1;
+        savePosts();
+        renderPosts();
+      }
+
+      input.value = '';
+      openCommentsSheet(currentCommentTargetId); // refresh list
+      showToast('Comment posted! 💬');
+    }
+
+    function likeComment(targetId, commentId) {
+      const comments = commentsDb[targetId];
+      if (!comments) return;
+      const c = comments.find(x => x.id === commentId);
+      if (c) {
+        c.likes = (c.likes || 0) + 1;
+        saveComments();
+        openCommentsSheet(targetId);
+      }
+    }
+
+    // CREATE POST MODAL
+    function openCreatePostModal(presetPhoto = false) {
+      document.getElementById('createPostModal').classList.remove('hidden');
+      if (presetPhoto) {
+        selectPresetImage('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80');
+      }
+    }
+
+    function closeCreatePostModal() {
+      document.getElementById('createPostModal').classList.add('hidden');
+      clearPostImage();
+      document.getElementById('postContentInput').value = '';
+    }
+
+    function selectPresetImage(url) {
+      selectedImageForPost = url;
+      document.getElementById('postImagePreview').src = url;
+      document.getElementById('postImagePreviewContainer').classList.remove('hidden');
+    }
+
+    function handleLocalImageUpload(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          selectPresetImage(evt.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function clearPostImage() {
+      selectedImageForPost = null;
+      document.getElementById('postImagePreview').src = '';
+      document.getElementById('postImagePreviewContainer').classList.add('hidden');
+    }
+
+    function publishNewPost() {
+      const content = document.getElementById('postContentInput').value.trim();
+      const tag = document.getElementById('postTagSelect').value;
+      const feeling = document.getElementById('postFeelingInput').value.trim();
+
+      if (!content && !selectedImageForPost) {
+        showToast('Please add some text or a photo!');
+        return;
+      }
+
+      const newPost = {
+        id: 'post_' + Date.now(),
+        author: 'Alex Mercer',
+        handle: 'alexmercer',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        content: content || 'Shared a new photo ✨',
+        image: selectedImageForPost,
+        timestamp: 'Just now',
+        category: tag,
+        feeling: feeling,
+        likes: 1,
+        isLiked: true,
+        reaction: '👍',
+        commentsCount: 0,
+        shares: 0
+      };
+
+      posts.unshift(newPost);
+      savePosts();
+      closeCreatePostModal();
+      renderPosts();
+      showToast('Post published to Timeline! 🎉');
+    }
+
+    function deletePost(id) {
+      if (confirm('Delete this post?')) {
+        posts = posts.filter(p => p.id !== id);
+        savePosts();
+        renderPosts();
+        renderUserProfileGrid();
+        showToast('Post deleted');
+      }
+    }
+
+    // CREATE REEL MODAL
+    function openCreateReelModal() {
+      document.getElementById('createReelModal').classList.remove('hidden');
+    }
+
+    function closeCreateReelModal() {
+      document.getElementById('createReelModal').classList.add('hidden');
+    }
+
+    function selectReelTheme(theme) {
+      selectedReelTheme = theme;
+      document.querySelectorAll('.reel-theme-pill').forEach(el => el.classList.remove('border-brand-pink'));
+      const activeEl = document.getElementById(`theme-${theme}`);
+      if (activeEl) activeEl.classList.add('border-brand-pink');
+    }
+
+    function publishNewReel() {
+      const caption = document.getElementById('reelCaptionInput').value.trim();
+      const sound = document.getElementById('reelSoundInput').value.trim();
+
+      const themeGradients = {
+        neon: { from: '#FE2C55', to: '#25F4EE' },
+        sunset: { from: '#F59E0B', to: '#9333EA' },
+        cyber: { from: '#06B6D4', to: '#3B82F6' },
+        emerald: { from: '#10B981', to: '#047857' },
+      };
+
+      const selectedGradient = themeGradients[selectedReelTheme] || themeGradients.neon;
+
+      const newReel = {
+        id: 'reel_' + Date.now(),
+        creator: 'Alex Mercer',
+        handle: 'alexmercer',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        caption: caption || 'New original reel #vibes #tokbook 🔥',
+        sound: sound || 'Alex Mercer - Original Audio 🎵',
+        likes: 1,
+        isLiked: true,
+        commentsCount: 0,
+        theme: selectedReelTheme,
+        colorFrom: selectedGradient.from,
+        colorTo: selectedGradient.to
+      };
+
+      reels.unshift(newReel);
+      saveReels();
+      closeCreateReelModal();
+      renderReels();
+      switchMainTab('reels');
+      showToast('Reel published to feed! 🎥');
+    }
+
+    // CHOICE MODAL
+    function openCreateChoiceModal() {
+      document.getElementById('createChoiceModal').classList.remove('hidden');
+    }
+
+    function closeCreateChoiceModal() {
+      document.getElementById('createChoiceModal').classList.add('hidden');
+    }
+
+    // FILTER POSTS
+    function filterPosts(filter) {
+      activeFilter = filter;
+      ['all', 'trending', 'photos', 'mine'].forEach(f => {
+        const btn = document.getElementById(`filter-${f}`);
+        if (btn) {
+          if (f === filter) {
+            btn.className = 'px-3 py-1.5 rounded-full bg-blue-600 text-white font-bold';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-full bg-gray-800 text-gray-400 hover:text-white';
+          }
+        }
+      });
+      renderPosts();
+    }
+
+    // STORIES VIEWER
+    function openStoryViewer(index) {
+      currentStoryIndex = index;
+      const modal = document.getElementById('storyViewerModal');
+      const story = DEFAULT_STORIES[index];
+
+      document.getElementById('storyUserAvatar').src = story.avatar;
+      document.getElementById('storyUserName').innerText = story.user;
+      document.getElementById('storyImage').src = story.image;
+
+      modal.classList.remove('hidden');
+
+      const bar = document.getElementById('storyProgressBar');
+      bar.style.width = '0%';
+      clearInterval(storyInterval);
+
+      let width = 0;
+      storyInterval = setInterval(() => {
+        width += 2;
+        bar.style.width = width + '%';
+        if (width >= 100) {
+          clearInterval(storyInterval);
+          nextStory();
+        }
+      }, 100);
+    }
+
+    function nextStory() {
+      if (currentStoryIndex < DEFAULT_STORIES.length - 1) {
+        openStoryViewer(currentStoryIndex + 1);
+      } else {
+        closeStoryViewer();
+      }
+    }
+
+    function prevStory() {
+      if (currentStoryIndex > 0) {
+        openStoryViewer(currentStoryIndex - 1);
+      }
+    }
+
+    function closeStoryViewer() {
+      clearInterval(storyInterval);
+      document.getElementById('storyViewerModal').classList.add('hidden');
+    }
+
+    function reactStory(emoji) {
+      showToast(`Reacted with ${emoji}!`);
+      closeStoryViewer();
+    }
+
+    function addMyStory() {
+      showToast('Add to Story feature activated! 📸');
+      openCreatePostModal(true);
+    }
+
+    // PROFILE VIEW GRID
+    function updateProfileStats() {
+      const myPosts = posts.filter(p => p.author === 'Alex Mercer');
+      const myReels = reels.filter(r => r.creator === 'Alex Mercer');
+      const postCountEl = document.getElementById('profilePostCount');
+      if (postCountEl) {
+        postCountEl.innerText = (myPosts.length + myReels.length);
+      }
+    }
+
+    function renderUserProfileGrid() {
+      const container = document.getElementById('userPostsGrid');
+      const myPosts = posts.filter(p => p.author === 'Alex Mercer');
+      const myReels = reels.filter(r => r.creator === 'Alex Mercer');
+
+      if (myPosts.length === 0 && myReels.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-2 text-center py-6 text-gray-500">
+            <p class="text-xs">You haven't posted yet. Tap "+ New Post" to start!</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      myPosts.forEach(p => {
+        html += `
+          <div class="rounded-xl overflow-hidden bg-gray-900 border border-gray-800 relative group aspect-square">
+            ${p.image ? `<img src="${p.image}" class="w-full h-full object-cover">` : `
+              <div class="p-3 bg-gradient-to-tr from-blue-900 to-gray-900 w-full h-full flex items-center justify-center text-[10px] text-gray-300 text-center">
+                "${p.content.substring(0, 50)}..."
+              </div>
+            `}
+            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-3 text-white text-xs transition">
+              <span><i class="fa-solid fa-heart mr-1"></i>${p.likes}</span>
+              <span><i class="fa-solid fa-comment mr-1"></i>${p.commentsCount || 0}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      myReels.forEach(r => {
+        html += `
+          <div class="rounded-xl overflow-hidden bg-gradient-to-tr from-brand-pink to-blue-900 border border-gray-800 relative group aspect-square p-2 flex flex-col justify-between">
+            <i class="fa-brands fa-tiktok text-white/80 text-xs"></i>
+            <span class="text-[10px] font-bold text-white line-clamp-2">${r.caption}</span>
+            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-3 text-white text-xs transition">
+              <span><i class="fa-solid fa-heart mr-1"></i>${r.likes}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // UTILITIES
+    function formatNumber(num) {
+      if (!num) return '0';
+      if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+      return num.toString();
+    }
+
+    function sharePost(id) {
+      navigator.clipboard?.writeText(window.location.href);
+      showToast('Post link copied to clipboard! 📋');
+    }
+
+    function shareReel(id) {
+      showToast('Reel shared to messaging! ✈️');
+    }
+
+    function quickFeelingPrompt() {
+      const feeling = prompt('How are you feeling right now? (e.g. Blessed 🙏, Productive ⚡)');
+      if (feeling) {
+        document.getElementById('postFeelingInput').value = feeling;
+        openCreatePostModal();
+      }
+    }
+
+    function toggleNotifications() {
+      showToast('No new notifications right now ✨');
+    }
+
+    function resetDataPrompt() {
+      if (confirm('Reset to default feed and reels?')) {
+        localStorage.removeItem('tokbook_posts');
+        localStorage.removeItem('tokbook_reels');
+        localStorage.removeItem('tokbook_comments');
+        initStorage();
+        showToast('Feed reset to default sample data');
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.innerText = msg;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2200);
+    }
+
+    // Start
+    window.addEventListener('DOMContentLoaded', () => {
+      initStorage();
+    });
+  </script>
+</body>
+</html>
